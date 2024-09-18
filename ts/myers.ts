@@ -66,11 +66,11 @@ export function myersDiff<ValueT>(
  * In this overload, you provide your own custom wrappers for the Add
  * and Remove operations.
  */
-export function myersDiff<ValueT, AddOpT, RemoveOpT, ReadT>(
+export function myersDiff<ValueT, AddOpT, RemoveOpT, ReadOpT>(
 	left: ValueT[],
 	right: ValueT[],
-	config: MyersDiffConfig<ValueT, AddOpT, RemoveOpT, ReadT>,
-): Defined<AddOpT | RemoveOpT | ReadT>[];
+	config: MyersDiffConfig<ValueT, AddOpT, RemoveOpT, ReadOpT>,
+): Defined<AddOpT | RemoveOpT | ReadOpT>[];
 /**
  * Calculate a shallow diff (set of patch operations) between two arrays,
  * optionally using the provided equality predicate.
