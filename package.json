@@ -57,6 +57,9 @@
 	},
 	"name": "@rickosborne/diff-algorithms",
 	"private": false,
+	"publishConfig": {
+		"access": "public"
+	},
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/rickosborne/diff-algorithms.git"
