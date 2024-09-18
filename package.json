@@ -28,10 +28,6 @@
 		"typescript": "5.6.2",
 		"typescript-eslint": "8.6.0"
 	},
-	"engines": {
-		"node": "20.17.0",
-		"npm": ">=10.8.2 <11"
-	},
 	"exports": {
 		".": {
 			"types": "./dist/types/index.d.ts",
@@ -75,5 +71,5 @@
 		"type-check": "tsc --noEmit",
 		"upgrade:check": "npx npm-check-updates"
 	},
-	"version": "2024.9.14"
+	"version": "2024.9.17"
 }
