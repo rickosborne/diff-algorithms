@@ -8,6 +8,12 @@ max_line_length = 200
 tab_width = 4
 trim_trailing_whitespace = true
 
+[*.md]
+# Because the default GH and npm presentation makes tabs HUGE.
+indent_style = space
+indent_size = 2
+tab_width = 2
+
 [{*.js,*.mjs}]
 ij_javascript_use_double_quotes = true
 ij_javascript_force_quote_style = true

@@ -7,6 +7,7 @@ const globals = require("globals");
 const stylistic = require("@stylistic/eslint-plugin-js");
 const fs = require("node:fs");
 const requireExtensions = require("eslint-plugin-require-extensions");
+const markdown = require("eslint-plugin-markdown");
 
 /**
  * Load the `ignores` definitions from the `.gitignore` instead of replicating it.
@@ -57,6 +58,7 @@ module.exports = [
 		plugins: {
 			"@stylistic/js": stylistic,
 			editorConfig,
+			markdown,
 			"require-extensions": requireExtensions,
 			sortKeysFix,
 		},
@@ -77,6 +79,15 @@ module.exports = [
 			],
 			"sort-keys": "off",
 		},
+	},
+	...markdown.configs.recommended,
+	{
+		files: [ "**/*.md" ],
+		processor: "markdown/markdown",
+	},
+	{
+		files: [ "**/*.md/*.ts" ],
+		...tse.configs.disableTypeChecked,
 	},
 	{
 		rules: {
