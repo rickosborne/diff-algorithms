@@ -1,6 +1,7 @@
 import { AddOperation, CopyOperation, RemoveOperation } from "rfc6902/diff";
 
 export type BiPredicate<T> = (a: T, b: T) => boolean;
+export type BiFunction<T, U> = (a: T, b: T) => U;
 
 export type TypedValue<T> = { value: T };
 
@@ -32,24 +33,16 @@ export type IndexedCopyOperation = CopyOperation & Indexed;
 
 export type Defined<T> = Exclude<T, undefined>;
 
-export type LoggerLike = ((message: string) => void);
-
-
-export type MyersDiffBaseConfig = {
+export type DiffBaseConfig = {
 	/**
 	 * Toggle whether to cache results of the equality operation.
 	 * This is on by default if you use the default {@link equalsIdentity} function,
 	 * and off by default otherwise.
 	 */
 	cacheEquals?: undefined | boolean;
-	/**
-	 * If you're having trouble visualizing the operations, or want to compare with
-	 * another implementation, you can throw in a logger method to get some output.
-	 */
-	logger?: undefined | LoggerLike;
 };
 
-export type MyersDiffConfig<ValueT, AddOpT, RemoveOpT, CopyT> = MyersDiffBaseConfig & {
+export type DiffConfig<ValueT, AddOpT, RemoveOpT, CopyT> = DiffBaseConfig & {
 	/**
 	 * An equality test for the value type.
 	 * @default {typeof equalsIdentity} Strict identity equals.
@@ -81,3 +74,20 @@ export type MyersDiffConfig<ValueT, AddOpT, RemoveOpT, CopyT> = MyersDiffBaseCon
 	 */
 	toRemove?: undefined | ((value: ValueT, oldIndex: number, newIndex: number) => RemoveOpT | undefined);
 };
+
+export type DefaultDiffResult<ValueT> = (IndexedAddOperation<ValueT> | IndexedRemoveOperation<ValueT> | IndexedCopyOperation)[];
+export type DefaultDiffConfig<ValueT> = DiffBaseConfig & Pick<DiffConfig<ValueT, unknown, unknown, unknown>, "processValue" | "equals">;
+
+export type DefaultArrayDiffFunction<ValueT> = (
+	left: ValueT[],
+	right: ValueT[],
+	config?: undefined | DefaultDiffConfig<ValueT>,
+) => DefaultDiffResult<ValueT>;
+
+export type CustomArrayDiffFunction<ValueT, AddOpT, RemoveOpT, ReadOpT> = (
+	left: ValueT[],
+	right: ValueT[],
+	config: DiffConfig<ValueT, AddOpT, RemoveOpT, ReadOpT>,
+) => Defined<AddOpT | RemoveOpT | ReadOpT>[];
+
+export type ArrayDiffFunction<ValueT, AddOpT = unknown, RemoveOpT = unknown, CopyOpT = unknown> = DefaultArrayDiffFunction<ValueT> & CustomArrayDiffFunction<ValueT, AddOpT, RemoveOpT, CopyOpT>;

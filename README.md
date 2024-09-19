@@ -16,7 +16,18 @@ const { myersDiff } = require("@rickosborne/diff-algorithms");
 import { myersDiff } from "@rickosborne/diff-algorithms";
 ```
 
-### `myersDiff`
+### Implementations
+
+Two variants of the Myers algorithm are currently implemented:
+
+- `myersDiff`, based on [an implementation by Robert Elder](https://github.com/RobertElderSoftware/roberteldersoftwarediff/blob/master/myers_diff_and_variations.py)
+- `marchettiDiff`, based on [an implementation by Chris Marchetti](https://gist.github.com/adamnew123456/37923cf53f51d6b9af32a539cdfa7cc4)
+
+Both share the same type signature and options.
+In theory, the Elder implementation _may_ be faster and more memory efficient.
+However, they should both return the same results and be roughly on the same order of magnitude for average use-cases.
+
+> In the author's personal opinion, the Marchetti version is _much_ easier to read through and reason about.
 
 Basic usage is to just pass in two arrays:
 
@@ -183,12 +194,6 @@ The transformed values will not be cached by the function, so this should be a c
 operation, but can be useful when you don't want to spare the memory to transform the
 arrays before calling the function.
 
-`logger?: (msg: string) => void`
-
-You can pass in a string consumer callback, to which some log messages will be sent.
-This is mostly intended for when you're comparing the function with another implementation.
-Stepping through the code with a line debugger will produce better results, though.
-
 ### Additional utility functions
 
 #### `flooredModulo`
@@ -223,12 +228,24 @@ console.log(filledArray(3, (idx) => idx));
 
 You might find this useful if you've ever been disappointed to find that `Array(3)` doesn't work quite like you expect.
 
+#### `memoizeBiFunction`
+
+A very simple transformer to add memoization/caching to a bi-function with a signature like:
+
+```typescript
+type BiFunction<T, U> = (a: T, b: T) => U;
+```
+
+Yeah, I know, `BiFunction` is a bit overloaded here, and is often used to mean `(T, U) => V` implementations.
+But naming things is hard, y'all.
+
 # Release Notes
 
 `2024.9.18`
 
 - DOC: Major overhaul to `README.md`.
 - FIX: Trivial non-functional refactor to `types.ts` to make them easier to understand.
+- FEATURE: Add the Marchetti implementation.
 
 `2024.9.17`
 

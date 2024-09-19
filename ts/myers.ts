@@ -1,65 +1,25 @@
-import type { BiPredicate, Defined, IndexedAddOperation, IndexedCopyOperation, IndexedRemoveOperation, MyersDiffBaseConfig, MyersDiffConfig } from "./types.js";
 import { equalsIdentity } from "./equals-identity.js";
+import { DiffNotFoundError } from "./errors.js";
 import { filledArray } from "./filled-array.js";
 import { flooredModulo } from "./floored-modulo.js";
+import { toIndexedAdd, toIndexedCopy, toIndexedRemove } from "./indexed.js";
 import { isDefined } from "./is-defined.js";
+import { memoizeBiFunction } from "./memoize-bi-function.js";
 
-/**
- * Structure the given value and index into an {@link IndexedAddOperation}.
- * It may seem odd to have an `oldIndex` here, as by definition there isn't anything at
- * that position in the old array.  But it can be thought of as a "read head pointer":
- * in applying this as part of a series of operations, where did we last look at the
- * old array?
- * Careful! To match the order for the Remove operation, and to preserve the "left is
- * first, right is second" convention, this callback supplies the old/left index as
- * the first argument, even though you may only care about the new/right index.
- */
-export const toIndexedAdd = <T>(value: T, oldIndex: number, newIndex: number): IndexedAddOperation<T> => ({
-	count: 1,
-	newIndex,
-	oldIndex,
-	op: "add",
-	path: `/${ newIndex }`,
-	value,
-});
-
-/**
- * Structure the given value and index into a {@link IndexedRemoveOperation}.
- * It may seem odd to have a `newIndex` here, as by definition there isn't anything at
- * that position in the new array.  But it can be thought of as a "write head pointer":
- * in applying this as part of a series of changes, where did we last look at the
- * new array?
- */
-export const toIndexedRemove = <T>(value: T, oldIndex: number, newIndex: number): IndexedRemoveOperation<T> => ({
-	count: 1,
-	newIndex,
-	oldIndex,
-	op: "remove",
-	path: `/${ oldIndex }`,
-	value,
-});
-
-export const toIndexedCopy = (count: number, oldIndex: number, newIndex: number): IndexedCopyOperation => ({
-	count,
-	from: `/${ oldIndex }`,
-	newIndex,
-	oldIndex,
-	op: "copy",
-	path: `/${ newIndex }`,
-});
+import type { BiPredicate, DefaultDiffConfig, DefaultDiffResult, Defined, DiffConfig, IndexedAddOperation, IndexedCopyOperation, IndexedRemoveOperation } from "./types.js";
 
 /**
  * Calculate a shallow diff (set of patch operations) between two arrays,
  * optionally using the provided equality predicate.
- * In this overload, the returned operations are {@link IndexedAddOperation}
- * and {@link IndexedRemoveOperation}, which are vaguely supersets of
- * RFC6902 data types.
+ * In this overload, the returned operations are {@link IndexedAddOperation},
+ * {@link IndexedCopyOperation}, and {@link IndexedRemoveOperation}, which
+ * are vaguely supersets of RFC6902 data types.
  */
 export function myersDiff<ValueT>(
 	left: ValueT[],
 	right: ValueT[],
-	config?: undefined | MyersDiffBaseConfig & Pick<MyersDiffConfig<ValueT, unknown, unknown, unknown>, "processValue" | "equals">,
-): (IndexedAddOperation<ValueT> | IndexedRemoveOperation<ValueT> | IndexedCopyOperation)[];
+	config?: undefined | DefaultDiffConfig<ValueT>,
+): DefaultDiffResult<ValueT>;
 /**
  * Calculate a shallow diff (set of patch operations) between two arrays,
  * optionally using the provided equality predicate.
@@ -69,7 +29,7 @@ export function myersDiff<ValueT>(
 export function myersDiff<ValueT, AddOpT, RemoveOpT, ReadOpT>(
 	left: ValueT[],
 	right: ValueT[],
-	config: MyersDiffConfig<ValueT, AddOpT, RemoveOpT, ReadOpT>,
+	config: DiffConfig<ValueT, AddOpT, RemoveOpT, ReadOpT>,
 ): Defined<AddOpT | RemoveOpT | ReadOpT>[];
 /**
  * Calculate a shallow diff (set of patch operations) between two arrays,
@@ -82,31 +42,25 @@ export function myersDiff<ValueT, AddOpT, RemoveOpT, ReadOpT>(
 export function myersDiff<ValueT, AddOpT, RemoveOpT, CopyT>(
 	left: ValueT[],
 	right: ValueT[],
-	config: MyersDiffConfig<ValueT, AddOpT, RemoveOpT, CopyT> = {},
+	config: DiffConfig<ValueT, AddOpT, RemoveOpT, CopyT> = {},
 ): Defined<AddOpT | RemoveOpT | CopyT>[] {
-	const { equals = equalsIdentity, logger } = config;
-	const toAdd = (config.toAdd?.bind(config) ?? toIndexedAdd) as Defined<(typeof config)["toAdd"]>;
-	const toRemove = (config.toRemove?.bind(config) ?? toIndexedRemove) as Defined<(typeof config)["toRemove"]>;
-	const toCopy = (config.toCopy?.bind(config) ?? toIndexedCopy) as Defined<(typeof config)["toCopy"]>;
-	const process = (config.processValue?.bind(config) ?? ((v) => v));
 	/**
 	 * Both empty?  Easy!
 	 */
 	if (left.length === 0 && right.length === 0) {
 		return [];
 	}
+	const { equals = equalsIdentity } = config;
+	const toAdd = (config.toAdd ?? toIndexedAdd) as Defined<(typeof config)["toAdd"]>;
+	const toRemove = (config.toRemove ?? toIndexedRemove) as Defined<(typeof config)["toRemove"]>;
+	const toCopy = (config.toCopy ?? toIndexedCopy) as Defined<(typeof config)["toCopy"]>;
+	const process = (config.processValue ?? ((v) => v));
 	/**
 	 * Same instance? Just return a Copy Operation.
 	 */
 	if (left === right) {
 		return [ toCopy(left.length, 0, 0) ].filter(isDefined);
 	}
-	/**
-	 * We'll be working with indices when comparing, so we wrap the value comparator
-	 * in a function which gets their values from their indices.  This also allows us
-	 * to cache the results, if desired.
-	 */
-	let equalsAt: BiPredicate<number>;
 	/**
 	 * Use the cache by default if a custom comparator was provided.  Otherwise, we
 	 * assume identity comparisons probably don't need to be cached.
@@ -116,29 +70,14 @@ export function myersDiff<ValueT, AddOpT, RemoveOpT, CopyT>(
 	 * Actual cache preference by the caller, or the default if not given.
 	 */
 	const cacheEquals = config.cacheEquals ?? cacheDefault;
+	/**
+	 * We'll be working with indices when comparing, so we wrap the value comparator
+	 * in a function which gets their values from their indices.  This also allows us
+	 * to cache the results, if desired.
+	 */
+	let equalsAt: BiPredicate<number> = (leftIndex: number, rightIndex: number) => equals(process(left[leftIndex]), process(right[rightIndex]));
 	if (cacheEquals) {
-		/**
-		 * This is just a super simple cache of the equality check outcomes.
-		 * This may only be useful if you have a complex equality check, or expect
-		 * the operation to be slow.
-		 */
-		const leftCache: boolean[][] = [];
-		equalsAt = (leftIndex: number, rightIndex: number): boolean => {
-			let rightCache = leftCache.at(leftIndex);
-			if (rightCache == null) {
-				rightCache = [];
-				leftCache[leftIndex] = rightCache;
-			}
-			let same = rightCache.at(rightIndex);
-			if (same == null) {
-				logger?.(`eq(${ leftIndex }, ${ rightIndex })`);
-				same = equals(process(left[leftIndex]), process(right[rightIndex]));
-				rightCache[rightIndex] = same;
-			}
-			return same;
-		};
-	} else {
-		equalsAt = (leftIndex: number, rightIndex: number) => equals(process(left[leftIndex]), process(right[rightIndex]));
+		equalsAt = memoizeBiFunction(equalsAt);
 	}
 	/**
 	 * Calculate the diff of just slices of each array.  This will be called recursively,
@@ -155,13 +94,11 @@ export function myersDiff<ValueT, AddOpT, RemoveOpT, CopyT>(
 		rightStart: number,
 		rightMax: number,
 	): Defined<AddOpT | RemoveOpT | CopyT>[] => {
-		logger?.(`diffSlices(${ leftStart }:${ leftMax }, ${ rightStart }:${ rightMax })`);
 		/**
 		 * In Elder's implementation, this is {@code N}.
 		 */
 		const leftCount = leftMax - leftStart;
 		if (leftCount === 0) {
-			logger?.(`right[${ rightStart }:${ rightMax }] => +`);
 			return right.slice(rightStart, rightMax).map((value, index) => toAdd(value, leftStart, rightStart + index)).filter(isDefined);
 		}
 		/**
@@ -169,7 +106,6 @@ export function myersDiff<ValueT, AddOpT, RemoveOpT, CopyT>(
 		 */
 		const rightCount = rightMax - rightStart;
 		if (rightCount === 0) {
-			logger?.(`left[${ leftStart }:${ leftMax }] = (${ left.slice(leftStart, leftMax) }) => -`);
 			return left.slice(leftStart, leftMax).map((value, index) => toRemove(value, index + leftStart, rightStart)).filter(isDefined);
 		}
 		/**
@@ -251,7 +187,6 @@ export function myersDiff<ValueT, AddOpT, RemoveOpT, CopyT>(
 				 * How far ahead should we look?
 				 */
 				const lookMax = steps - (2 * Math.max(0, steps - leftCount)) + 1;
-				logger?.(`opC=${ steps }; dir=${ direction }; odd=${ odd }; sign=${ sign }; lMin=${ lookMin }; lMax=${ lookMax }`);
 				/**
 				 * The value of {@code look} is just the delta between the left index and right index.
 				 */
@@ -356,7 +291,7 @@ export function myersDiff<ValueT, AddOpT, RemoveOpT, CopyT>(
 				}
 			}
 		}
-		throw new Error("Could not find difference");
+		throw new DiffNotFoundError(windowMax, leftCount, rightCount);
 	};
 	/**
 	 * The length of the common head, if any.
