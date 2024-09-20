@@ -84,10 +84,10 @@ export type DefaultArrayDiffFunction<ValueT> = (
 	config?: undefined | DefaultDiffConfig<ValueT>,
 ) => DefaultDiffResult<ValueT>;
 
-export type CustomArrayDiffFunction<ValueT, AddOpT, RemoveOpT, ReadOpT> = (
+export type CustomArrayDiffFunction<ValueT, AddOpT, RemoveOpT, CopyOpT> = (
 	left: ValueT[],
 	right: ValueT[],
-	config: DiffConfig<ValueT, AddOpT, RemoveOpT, ReadOpT>,
-) => Defined<AddOpT | RemoveOpT | ReadOpT>[];
+	config: DiffConfig<ValueT, AddOpT, RemoveOpT, CopyOpT>,
+) => Defined<AddOpT | RemoveOpT | CopyOpT>[];
 
 export type ArrayDiffFunction<ValueT, AddOpT = unknown, RemoveOpT = unknown, CopyOpT = unknown> = DefaultArrayDiffFunction<ValueT> & CustomArrayDiffFunction<ValueT, AddOpT, RemoveOpT, CopyOpT>;

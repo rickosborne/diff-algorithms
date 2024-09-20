@@ -1,17 +1,20 @@
 import { equalsIdentity } from "./equals-identity.js";
+import { filledArray } from "./filled-array.js";
 import { toIndexedAdd, toIndexedCopy, toIndexedRemove } from "./indexed.js";
 import { isDefined } from "./is-defined.js";
 import { memoizeBiFunction } from "./memoize-bi-function.js";
 import { type BiPredicate, Defined, DiffConfig } from "./types.js";
 
-const ADD = "+" as const;
-const DEL = "-" as const;
-const COPY = "=" as const;
+export const ADD = "+" as const;
+export const DEL = "-" as const;
+export const COPY = "=" as const;
+export const REPLACE = "~" as const;
 
 export type MinimalAdd = [ op: typeof ADD, oldIndex: number, newIndex: number ];
 export type MinimalCopy = [ op: typeof COPY, count: number, oldIndex: number, newIndex: number ];
 export type MinimalRemove = [ op: typeof DEL, oldIndex: number, newIndex: number ];
-export type MinimalOp = MinimalAdd | MinimalCopy | MinimalRemove;
+export type MinimalReplace = [ op: typeof REPLACE, count: number, oldIndex: number, newIndex: number ];
+export type MinimalOp = MinimalAdd | MinimalCopy | MinimalRemove | MinimalReplace;
 
 export type DiffAlgorithmContext = {
 	equalsAt(leftIndex: number, rightIndex: number): boolean;
@@ -22,6 +25,7 @@ export type DiffAlgorithmContext = {
 	toAdd(oldIndex: number, newIndex: number): MinimalAdd;
 	toCopy(count: number, oldIndex: number, newIndex: number): MinimalCopy;
 	toRemove(oldIndex: number, newIndex: number): MinimalRemove;
+	toReplace(count: number, oldIndex: number, newIndex: number): MinimalReplace;
 }
 
 export function boilerplate<ValueT, AddOpT, RemoveOpT, CopyT>(
@@ -30,6 +34,8 @@ export function boilerplate<ValueT, AddOpT, RemoveOpT, CopyT>(
 	config: DiffConfig<ValueT, AddOpT, RemoveOpT, CopyT> = {},
 	impl: (context: DiffAlgorithmContext) => MinimalOp[],
 ): Defined<AddOpT | RemoveOpT | CopyT>[] {
+	type OpT = AddOpT | RemoveOpT | CopyT;
+	type ReturnT = Defined<OpT>[];
 	/**
 	 * Both empty?  Easy!
 	 */
@@ -124,20 +130,40 @@ export function boilerplate<ValueT, AddOpT, RemoveOpT, CopyT>(
 		toAdd: (oldIndex: number, newIndex: number): MinimalAdd => [ ADD, oldIndex + start, newIndex + start ],
 		toCopy: (count: number, oldIndex: number, newIndex: number): MinimalCopy => [ COPY, count, oldIndex + start, newIndex + start ],
 		toRemove: (oldIndex: number, newIndex: number): MinimalRemove => [ DEL, oldIndex + start, newIndex + start ],
+		toReplace: (count: number, oldIndex: number, newIndex: number): MinimalReplace => [ REPLACE, count, oldIndex + start, newIndex + start ],
 	});
 	/**
 	 * Translate from the Minimal operations to the formats built by the caller.
 	 */
-	return headCopy.concat(middle, tailCopy).map((op) => {
+	return headCopy.concat(middle, tailCopy).reduce<MinimalOp[]>((prev, cur) => {
+		const last = prev.at(-1);
+		if (last != null && ((last[0] === COPY && cur[0] === COPY) || (last[0] === REPLACE && cur[0] === REPLACE))) {
+			last[1] += cur[1];
+		} else {
+			prev.push(cur);
+		}
+		return prev;
+	}, []).reduce<ReturnT>((prev, op) => {
+		let typedOp: OpT | undefined;
+		let typedOps: Defined<OpT>[] | undefined;
 		if (op[0] === ADD) {
-			return toAdd(right[op[2]], op[1], op[2]);
+			typedOp = toAdd(right[op[2]], op[1], op[2]);
+		} else if (op[0] === COPY) {
+			typedOp = toCopy(op[1], op[2], op[3]);
+		} else if (op[0] === DEL) {
+			typedOp = toRemove(left[op[1]], op[1], op[2]);
+		} else if (op[0] === REPLACE) {
+			typedOps = filledArray<OpT | undefined>(op[1], (idx) => toRemove(left[op[2] + idx], op[2] + idx, op[3]))
+				.concat(filledArray<OpT | undefined>(op[1], (idx) => toAdd(right[op[3] + idx], op[2] + op[1], op[3] + idx)))
+				.filter(isDefined);
+		} else {
+			throw new Error(`Unknown op: ${ op[0] }`);
 		}
-		if (op[0] === COPY) {
-			return toCopy(op[1], op[2], op[3]);
+		if (isDefined(typedOp)) {
+			prev.push(typedOp);
+		} else if (typedOps != null && typedOps.length > 0) {
+			prev.push(...typedOps);
 		}
-		if (op[0] === DEL) {
-			return toRemove(left[op[1]], op[1], op[2]);
-		}
-		throw new SyntaxError(`Unknown op: ${ op[0] }`);
-	}).filter(isDefined);
-};
+		return prev;
+	}, []);
+}
