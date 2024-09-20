@@ -38,9 +38,9 @@ export const diffFunctionTest = (
 	const testDefault = <ValueT>(left: ValueT[], right: ValueT[], config?: DefaultDiffConfig<ValueT>): DefaultDiffResult<ValueT> => {
 		const result = (diffFunction as DefaultArrayDiffFunction<ValueT>)(left, right, config) as DefaultDiffResult<ValueT>;
 		const leftFromRight = patch(right, result, true);
-		expect(leftFromRight).eql(left, "left from right");
+		expect({ left, right, leftFromRight, result }).eql({ left, leftFromRight: left, result, right }, "left from right");
 		const rightFromLeft = patch(left, result, false);
-		expect(rightFromLeft).eql(right, "right from left");
+		expect({ left, right, result, rightFromLeft }).eql({ left, result, right, rightFromLeft: right }, "right from left");
 		return result;
 	};
 

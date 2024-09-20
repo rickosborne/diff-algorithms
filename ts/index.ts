@@ -5,6 +5,8 @@ export * from "./is-defined.js";
 export * from "./myers.js";
 export * from "./marchetti.js";
 export * from "./types.js";
+export * from "./wagner-fischer.js";
+export * from "./wagner-fischer-original.js";
 export { toIndexedCopy } from "./indexed.js";
 export { toIndexedRemove } from "./indexed.js";
 export { toIndexedAdd } from "./indexed.js";

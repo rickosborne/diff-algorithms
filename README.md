@@ -18,16 +18,18 @@ import { myersDiff } from "@rickosborne/diff-algorithms";
 
 ### Implementations
 
-Two variants of the Myers algorithm are currently implemented:
+Two variants of the Myers algorithm and two variants of the Wagner-Fisher algorithm are currently implemented:
 
 - `myersDiff`, based on [an implementation by Robert Elder](https://github.com/RobertElderSoftware/roberteldersoftwarediff/blob/master/myers_diff_and_variations.py)
 - `marchettiDiff`, based on [an implementation by Chris Marchetti](https://gist.github.com/adamnew123456/37923cf53f51d6b9af32a539cdfa7cc4)
+- `wagnerFisherDiff`, [via Wikipedia](https://en.wikipedia.org/wiki/Wagner%E2%80%93Fischer_algorithm) plus a memory optimization, and a `wagnerFisherOriginalDiff` which does not have that optimization.
 
 Both share the same type signature and options.
 In theory, the Elder implementation _may_ be faster and more memory efficient.
 However, they should both return the same results and be roughly on the same order of magnitude for average use-cases.
 
-> In the author's personal opinion, the Marchetti version is _much_ easier to read through and reason about.
+> In the author's personal opinion, the Marchetti version is _much_ easier to read through and reason about than the Elder version.
+> And although Wagner-Fisher isn't as efficient, it's also a good place to start before tackling the others.
 
 Basic usage is to just pass in two arrays:
 

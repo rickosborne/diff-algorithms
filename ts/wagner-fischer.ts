@@ -1,6 +1,5 @@
 import type { MinimalOp } from "./boilerplate.js";
 import { boilerplate } from "./boilerplate.js";
-import { filledArray } from "./filled-array.js";
 import type { DefaultDiffConfig, DefaultDiffResult, Defined, DiffConfig } from "./types.js";
 
 /**
@@ -38,6 +37,10 @@ export function wagnerFischerDiff<ValueT, AddOpT, RemoveOpT, ReadOpT>(
  * Calculate a shallow diff (set of patch operations) between two arrays,
  * optionally using the provided equality predicate.
  *
+ * This version is slightly more optimized than the original, using
+ * {@code O(2*L*D)} memory instead of {@code O(L*R*D)}.  The performance
+ * remains the same: {@code O(L*R)} in all cases.
+ *
  * This is based on the Wagner-Fischer algorithm.
  * @see https://en.wikipedia.org/wiki/Wagner%E2%80%93Fischer_algorithm
  */
@@ -48,55 +51,96 @@ export function wagnerFischerDiff<ValueT, AddOpT, RemoveOpT, CopyT>(
 ): Defined<AddOpT | RemoveOpT | CopyT>[] {
 	return boilerplate(left, right, config, ({ equalsAt, leftCount, rightCount, toAdd, toCopy, toRemove, toReplace }) => {
 		/**
-		 * The cross product / matrix of distances.
-		 * The first array corresponds to left / {@code m},
-		 * while the second is right / {@code n}.
+		 * This will include a copy of the winning operation's history.  It's been
+		 * moved out here to allow us to reuse the variable, and to make it clearer
+		 * when "the current or best history" is changed.
 		 */
-		const d: number[][] = [];
-		const ops: MinimalOp[][][] = [];
-		for (let m = 0; m <= leftCount; m++) {
-			d[m] = filledArray(rightCount + 1, 0);
-			ops[m] = filledArray(rightCount + 1, []);
+		let history: MinimalOp[] = [];
+		/**
+		 * Instead of storing the entire {@code L*R*D} matrix as the original does,
+		 * this version only stores two {@code L*D} rows: the last one and the
+		 * current one.  You could optimize for memory a little further here by
+		 * swapping left and right so the length here would be the shorter of the two.
+		 */
+		let previousOps: MinimalOp[][] = [ history ];
+		let previousDistance: number[] = [ 0 ];
+		for (let leftCursor = 1; leftCursor <= leftCount; leftCursor++) {
+			/**
+			 * As in the original, the top row shows increasing distance along the left array.
+			 */
+			previousDistance[leftCursor] = leftCursor;
+			/**
+			 * As in the original, the top row here is an increasing number of Remove
+			 * operations, to show a history of non-matches against the right array.
+			 */
+			history = previousOps[leftCursor - 1].concat([ toRemove(leftCursor - 1, 0) ]);
+			previousOps[leftCursor] = history;
 		}
-		for (let i = 1; i <= leftCount; i++) {
-			d[i][0] = i;
-			ops[i][0] = i === 1 ? [ toRemove(i - 1, 0) ] : ops[i - 1][0].concat([ toRemove(i - 1, 0) ]);
-		}
-		for (let j = 1; j <= rightCount; j++) {
-			d[0][j] = j;
-			ops[0][j] = j === 1 ? [ toAdd(0, j - 1) ] : ops[0][j - 1].concat([ toAdd(0, j - 1) ]);
-		}
-		// let previousOps = filledArray<MinimalOp[]>(leftCount + 1, []);
-		// let previousDistance = filledArray(leftCount + 1, (idx) => idx);
-		for (let j = 1; j <= rightCount; j++) {
-			// let currentOps: MinimalOp[][] = [];
-			// let currentDistance: number[] = [];
-			for (let i = 1; i <= leftCount; i++) {
-				const same = equalsAt(i - 1, j - 1);
+		for (let rightCursor = 1; rightCursor <= rightCount; rightCursor++) {
+			/**
+			 * Since we moved "down" from the previous row, this row's history starts
+			 * with an Add operation on top of the previous history.
+			 */
+			history = previousOps[0].concat([ toAdd(0, rightCursor - 1) ]);
+			/**
+			 * Create a fresh array to fill for this row of matches.
+			 */
+			let currentOps: MinimalOp[][] = [ history ];
+			/**
+			 * Similarly, we start with a distance which reflects how far down (into the
+			 * right array) we already are.
+			 */
+			let currentDistance: number[] = [ rightCursor ];
+			for (let leftCursor = 1; leftCursor <= leftCount; leftCursor++) {
+				/**
+				 * We still need to correct for 1-indexing here.
+				 */
+				const same = equalsAt(leftCursor - 1, rightCursor - 1);
+				/**
+				 * Operation costs and logic are the same here, if a bit easier to read.
+				 */
 				const substitutionCost = same ? 0 : 1;
-				const deleteCost = d[i - 1][j] + 1;
-				const insertCost = d[i][j - 1] + 1;
-				const replaceCost = d[i - 1][j - 1] + substitutionCost;
+				const deleteCost = currentDistance[leftCursor - 1] + 1;
+				const insertCost = previousDistance[leftCursor] + 1;
+				const replaceCost = previousDistance[leftCursor - 1] + substitutionCost;
 				const minCost = Math.min(deleteCost, insertCost, replaceCost);
-				let changes: MinimalOp[];
+				/**
+				 * Each step is still exactly one change operation.  The logic below is the same.
+				 */
+				let change: MinimalOp;
 				if (minCost === replaceCost) {
-					changes = ops[i - 1][j - 1].slice();
+					history = previousOps[leftCursor - 1];
 					if (same) {
-						changes.push(toCopy(1, i - 1, j - 1));
+						change = toCopy(1, leftCursor - 1, rightCursor - 1);
 					} else {
-						changes.push(toReplace(1, i - 1, j - 1));
+						change = toReplace(1, leftCursor - 1, rightCursor - 1);
 					}
 				} else if (minCost === insertCost) {
-					changes = ops[i][j - 1].concat([ toAdd(i, j - 1) ]);
+					history = previousOps[leftCursor];
+					change = toAdd(leftCursor, rightCursor - 1);
 				} else {
-					changes = ops[i - 1][j].concat([ toRemove(i - 1, j) ]);
+					history = currentOps[leftCursor - 1];
+					change = toRemove(leftCursor - 1, rightCursor);
 				}
-				d[i][j] = minCost;
-				ops[i][j] = changes;
+				/**
+				 * We want to make a copy here, so multiple future steps can use it.
+				 */
+				history = history.concat([ change ]);
+				currentDistance[leftCursor] = minCost;
+				currentOps[leftCursor] = history;
 			}
-			// previousOps = currentOps;
-			// previousDistance = currentDistance;
+			/**
+			 * As we move down to the next row, use the current as the next previous.
+			 */
+			previousOps = currentOps;
+			/**
+			 * Same for the distances.
+			 */
+			previousDistance = currentDistance;
 		}
-		return ops[leftCount][rightCount];
+		/**
+		 * And again, we return the operations of the very last history.
+		 */
+		return history;
 	});
 }
