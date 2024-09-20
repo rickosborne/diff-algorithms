@@ -243,6 +243,12 @@ But naming things is hard, y'all.
 
 # Release Notes
 
+`2024.9.19`
+
+- FEATURE: Add Wagner-Fisher.
+- REFACTOR: Add a boilerplate wrapper to extract out all the common clerical overhead for the algorithms.
+- REFACTOR: Most diff tests now work by applying the patch in each direction and ensuring you get the other side, instead of hard-coding specific results.
+
 `2024.9.18`
 
 - DOC: Major overhaul to `README.md`.
