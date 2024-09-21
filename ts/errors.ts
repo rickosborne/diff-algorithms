@@ -7,3 +7,11 @@ export class DiffNotFoundError extends Error {
 		super("Could not find a diff");
 	}
 }
+
+export class DiffOperationUnknownError extends Error {
+	constructor(
+		public readonly operation: unknown,
+	) {
+		super("Diff/Patch operation unknown");
+	}
+}

@@ -1,46 +1,46 @@
 import { expect } from "chai";
 import { it } from "mocha";
-import { toIndexedAdd, toIndexedCopy, toIndexedRemove } from "../indexed.js";
+import { applyPatch } from "../apply-patch.js";
+import { equalsIdentity } from "../equals-identity.js";
+import { toIndexedCopy } from "../indexed.js";
+import { isDefined } from "../is-defined.js";
 import { ArrayDiffFunction, DefaultArrayDiffFunction, DefaultDiffConfig, DefaultDiffResult } from "../types.js";
+import { patchConfigForTest } from "./patch-config-for-test.js";
 
 export const diffFunctionTest = (
 	diffFunction: ArrayDiffFunction<unknown>,
 ) => {
-	const patch = <ValueT>(original: ValueT[], changes: DefaultDiffResult<ValueT>, reverse: boolean): ValueT[] => {
-		const result: ValueT[] = [];
-		let nextNewIndex = 0;
-		let nextOldIndex = 0;
-		changes.forEach((change, changeIndex) => {
-			expect(change.oldIndex).equals(nextOldIndex, `oldIndex[${ changeIndex }]`);
-			expect(change.newIndex).equals(nextNewIndex, `newIndex[${ changeIndex }]`);
-			if (change.op === "add") {
-				nextNewIndex++;
-				if (!reverse) {
-					result.push(change.value);
-				}
-			} else if (change.op === "remove") {
-				nextOldIndex++;
-				if (reverse) {
-					result.push(change.value);
-				}
-			} else {
-				const baseIndex = reverse ? change.newIndex : change.oldIndex;
-				nextOldIndex += change.count;
-				nextNewIndex += change.count;
-				for (let at = 0; at < change.count; at++) {
-					result.push(original[baseIndex + at]);
-				}
-			}
-		});
-		return result;
-	};
-
+	/**
+	 * Given two arrays and an optional config, generate a diff, and then
+	 * apply that diff to each side, checking to ensure the result equals
+	 * the other side.
+	 */
 	const testDefault = <ValueT>(left: ValueT[], right: ValueT[], config?: DefaultDiffConfig<ValueT>): DefaultDiffResult<ValueT> => {
 		const result = (diffFunction as DefaultArrayDiffFunction<ValueT>)(left, right, config) as DefaultDiffResult<ValueT>;
-		const leftFromRight = patch(right, result, true);
-		expect({ left, right, leftFromRight, result }).eql({ left, leftFromRight: left, result, right }, "left from right");
-		const rightFromLeft = patch(left, result, false);
-		expect({ left, right, result, rightFromLeft }).eql({ left, result, right, rightFromLeft: right }, "right from left");
+		const leftFromRight = applyPatch(right, result, patchConfigForTest(true));
+		const rightFromLeft = applyPatch(left, result, patchConfigForTest(false));
+		const processValue = config?.processValue ?? ((v) => v);
+		const equals = config?.equals ?? equalsIdentity;
+		const compare = (actualValues: ValueT[], expectedValues: ValueT[], label: string) => {
+			/**
+			 * Because the {@code processedValue} and {@code equals} functions
+			 * may be lossy, we can't just use Chai's {@code eql} assertion.
+			 * Instead, we use those functions to check the outcomes, then
+			 * generate a list of mismatches.
+			 */
+			const mismatched = expectedValues.map((original, index) => {
+				const returned = actualValues[index];
+				const actual = processValue(returned);
+				const expected = processValue(original);
+				if (equals(expected, actual)) {
+					return undefined;
+				}
+				return { actual, expected, index, original, returned };
+			}).filter(isDefined);
+			expect(mismatched).eql([], label);
+		};
+		compare(leftFromRight, left, "left from right");
+		compare(rightFromLeft, right, "right from left");
 		return result;
 	};
 
@@ -114,41 +114,20 @@ export const diffFunctionTest = (
 			[ 0, 11, 22, 33, 44, 5, 66, 77, 88, 9 ]);
 	});
 
-	// These tests are lossy, so we can't just pass them through `testDefault`.
-	// These just help tsc grumble less.
-	const diffNumbers = diffFunction as ArrayDiffFunction<number>;
-	const diffStrings = diffFunction as ArrayDiffFunction<string>;
-
 	it("can pre-process numbers to do close-enough matching", () => {
 		const before = [ 1.1, 2.2, 3.3 ];
 		const after = [ 1.1, 2.3, 4.4 ];
-		const expected = [
-			toIndexedCopy(2, 0, 0),
-			toIndexedRemove(3.3, 2, 2),
-			toIndexedAdd(4.4, 3, 2),
-		];
-		// These are technically lossy, as we can't recover the close-enough
-		// numbers to accurately reconstruct the other side.
-		expect(diffNumbers(before, after,
-			{ processValue: (n) => Math.round(n) },
-		)).eql(expected);
+		testDefault(before, after, { processValue: (n) => Math.round(n) });
 		// same outcome
-		expect(diffNumbers(before, after,
-			{ equals: (a, b) => Math.round(a) === Math.round(b) },
-		)).eql(expected);
+		testDefault(before, after, { equals: (a, b) => Math.round(a) === Math.round(b) });
 	});
 	it("can pre-process text to ignore whitespace", () => {
-		// Theis is technically lossy, as we can't recover the whitespace
-		// changes to accurately reconstruct the other side.
-		expect(diffStrings(
-			[ "\tapple", "\tbanana", "durian" ],
+		testDefault([ "\tapple", "\tbanana", "durian" ],
 			[ "  apple", "  cherry", "\tdurian" ],
-			{ processValue: (s) => s.trim() },
-		)).eql([
-			toIndexedCopy(1, 0, 0),
-			toIndexedRemove("\tbanana", 1, 1),
-			toIndexedAdd("  cherry", 2, 1),
-			toIndexedCopy(1, 2, 2),
-		]);
+			{ processValue: (s) => s.trim() });
+		// same outcome
+		testDefault([ "\tapple", "\tbanana", "durian" ],
+			[ "  apple", "  cherry", "\tdurian" ],
+			{ equals: (a, b) => a.trim() === b.trim() });
 	});
 };

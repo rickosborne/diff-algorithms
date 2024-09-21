@@ -3,7 +3,9 @@ import * as path from "node:path";
 import * as process from "node:process";
 import { before, describe } from "mocha";
 import { expect } from "chai";
+import { applyPatch } from "../apply-patch.js";
 import { myersDiff } from "../myers.js";
+import { patchConfigForTest } from "./patch-config-for-test.js";
 
 const MUCH_ADO_URL = "https://www.gutenberg.org/cache/epub/1519/pg1519.txt";
 const CACHE_DIR = ".cache";
@@ -56,44 +58,16 @@ describe("online tests via Project Gutenberg", async () => {
 		const originalLines = muchAdoOriginal.split("\n");
 		const modernizedLines = modernized.split("\n");
 		const diff = myersDiff(originalLines, modernizedLines);
-		let copyCount = 0;
-		let addCount = 0;
-		let removeCount = 0;
-		let expectedOldIndex = 0;
-		let expectedNewIndex = 0;
-		const assembledOriginal: string[] = [];
-		const assembledModernized: string[] = [];
-		/**
-		 * This also shows we have the property that you can predict
-		 * the next set of indices based on the current ones and the
-		 * operation.  And that you can reconstruct one side from the
-		 * diff + the other.
-		 */
-		diff.forEach((op, opIndex) => {
-			const { oldIndex, newIndex, count } = op;
-			expect(oldIndex).equals(expectedOldIndex, `oldIndex[${ opIndex }]`);
-			expect(newIndex).equals(expectedNewIndex, `newIndex[${ opIndex }]`);
-			if (op.op === "copy") {
-				copyCount += count;
-				expectedOldIndex += count;
-				expectedNewIndex += count;
-				assembledOriginal.push(...originalLines.slice(oldIndex, oldIndex + count));
-				assembledModernized.push(...modernizedLines.slice(newIndex, newIndex + count));
-			} else if (op.op === "add") {
-				addCount++;
-				expectedNewIndex += count;
-				assembledModernized.push(op.value);
-			} else if (op.op === "remove") {
-				removeCount++;
-				expectedOldIndex += count;
-				assembledOriginal.push(op.value);
-			} else {
-				throw new Error(`Unexpected op: ${ op }`);
-			}
-		});
-		expect(addCount).equals(removeCount, "add === remove");
-		expect(addCount + copyCount).equals(originalLines.length, "line count");
-		expect({ addCount, copyCount, removeCount }).eql({ addCount: 202, copyCount: 4779, removeCount: 202 });
+		const assembledOriginal: string[] = applyPatch(
+			modernizedLines,
+			diff,
+			patchConfigForTest(true),
+		);
+		const assembledModernized: string[] = applyPatch(
+			originalLines,
+			diff,
+			patchConfigForTest(false),
+		);
 		expect(assembledOriginal).eql(originalLines, "original lines");
 		expect(assembledModernized).eql(modernizedLines, "modernized lines");
 	});
