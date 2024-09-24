@@ -243,6 +243,10 @@ But naming things is hard, y'all.
 
 # Release Notes
 
+`2024.9.24`
+
+- No changes, I just realized I forgot to actually run the build script before deploying to npm, leading to the last version existing only as source, and not in `dist`.  /sigh
+
 `2024.9.19`
 
 - FEATURE: Add Wagner-Fisher.

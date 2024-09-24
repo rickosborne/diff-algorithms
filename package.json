@@ -72,5 +72,5 @@
 		"type-check": "tsc --noEmit",
 		"upgrade:check": "npx npm-check-updates"
 	},
-	"version": "2024.9.19"
+	"version": "2024.9.24"
 }
