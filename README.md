@@ -243,7 +243,7 @@ But naming things is hard, y'all.
 
 ## Version support
 
-As of `2024.9.24.1`, you can build with node v14 or newer.
+As of `2024.9.25`, you can build with node v14 or newer.
 If you've already built the `dist` code, you can run the CJS tests with mocha and node v12 and v13 if you really want.
 
 I tried going back to v10 and v11 and running the CJS tests, but couldn't get mocha to run.
@@ -258,7 +258,7 @@ You're on your own with that, and welcome to open PRs for tweaks.
 
 # Release Notes
 
-`2024.9.24.1`
+`2024.9.25`
 
 - REFACTOR: Add support for Node v16.x and v14.x.
 - FEATURE: Add `dist-test` and unit tests for compiled `dist` JS files.
