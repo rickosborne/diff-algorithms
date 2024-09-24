@@ -1,14 +1,14 @@
 import type { MinimalOp } from "./boilerplate.js";
 import { boilerplate } from "./boilerplate.js";
 import { DiffNotFoundError } from "./errors.js";
-import type { DefaultDiffConfig, DefaultDiffResult, Defined, DiffConfig, IndexedAddOperation, IndexedCopyOperation, IndexedRemoveOperation } from "./types.js";
+import type { DefaultDiffConfig, DefaultDiffResult, Defined, DiffConfig } from "./types.js";
 
 // noinspection SpellCheckingInspection
 /**
  * Calculate a shallow diff (set of patch operations) between two arrays,
  * optionally using the provided equality predicate.
- * In this overload, the returned operations are {@link IndexedAddOperation},
- * {@link IndexedCopyOperation}, and {@link IndexedRemoveOperation}, which
+ * In this overload, the returned operations are {@code IndexedAddOperation},
+ * {@code IndexedCopyOperation}, and {@code IndexedRemoveOperation}, which
  * are vaguely supersets of RFC6902 data types.
  *
  * This is based on Chris Marchetti's implementation, which is a simplified version of Myers.

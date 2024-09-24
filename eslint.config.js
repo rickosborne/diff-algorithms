@@ -1,5 +1,6 @@
 const js = require("@eslint/js");
-const tse = require("typescript-eslint");
+const tse = require("@typescript-eslint/eslint-plugin");
+const tsp = require("@typescript-eslint/parser");
 const json = require("eslint-plugin-jsonc");
 const sortKeysFix = require("eslint-plugin-sort-keys-fix");
 const editorConfig = require("eslint-plugin-editorconfig");
@@ -29,28 +30,41 @@ module.exports = [
 	},
 	{
 		...js.configs.recommended,
-		files: [ "**/*.js", "**/*.mjs" ],
+		files: [ "**/*.js" ],
 		languageOptions: {
 			ecmaVersion: "latest",
 			globals: { ...globals.node },
 			sourceType: "commonjs",
 		},
 	},
+	{
+		...js.configs.recommended,
+		files: [ "**/*.mjs" ],
+		languageOptions: {
+			ecmaVersion: "latest",
+			globals: { ...globals.node },
+			sourceType: "module",
+		},
+	},
 	...[
-		...tse.configs.recommendedTypeChecked,
-		...tse.configs.stylisticTypeChecked,
+		tse.configs["recommended-type-checked"],
+		tse.configs["stylistic-type-checked"],
 	].map((c) => ({
-		...c,
 		files: [ "**/*.ts", "**/*.tsx", "**/*.mts" ],
 		languageOptions: {
-			...c.languageOptions,
+			parser: tsp,
+			// ...c.languageOptions,
 			parserOptions: {
-				...c.languageOptions?.parserOptions,
+				// ...c.languageOptions?.parserOptions,
 				project: "tsconfig.json",
 				tsconfigRootDir: __dirname,
 			},
 		},
+		plugins: {
+			"@typescript-eslint": tse,
+		},
 		rules: {
+			...c.rules,
 			"@typescript-eslint/consistent-type-definitions": [ "error", "type" ],
 		},
 	})),
@@ -80,15 +94,15 @@ module.exports = [
 			"sort-keys": "off",
 		},
 	},
-	...markdown.configs.recommended,
+	// markdown.configs.recommended,
 	{
 		files: [ "**/*.md" ],
 		processor: "markdown/markdown",
 	},
-	{
-		files: [ "**/*.md/*.ts" ],
-		...tse.configs.disableTypeChecked,
-	},
+	// {
+	// 	files: [ "**/*.md/*.ts" ],
+	// 	...tse.configs.disableTypeChecked,
+	// },
 	{
 		rules: {
 			"@stylistic/js/no-extra-parens": "off",

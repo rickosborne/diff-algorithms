@@ -4,7 +4,7 @@ import { applyPatch } from "../apply-patch.js";
 import { equalsIdentity } from "../equals-identity.js";
 import { toIndexedCopy } from "../indexed.js";
 import { isDefined } from "../is-defined.js";
-import { ArrayDiffFunction, DefaultArrayDiffFunction, DefaultDiffConfig, DefaultDiffResult } from "../types.js";
+import { ArrayDiffFunction, DefaultDiffConfig, DefaultDiffResult, DiffConfig } from "../types.js";
 import { patchConfigForTest } from "./patch-config-for-test.js";
 
 export const diffFunctionTest = (
@@ -15,8 +15,8 @@ export const diffFunctionTest = (
 	 * apply that diff to each side, checking to ensure the result equals
 	 * the other side.
 	 */
-	const testDefault = <ValueT>(left: ValueT[], right: ValueT[], config?: DefaultDiffConfig<ValueT>): DefaultDiffResult<ValueT> => {
-		const result = (diffFunction as DefaultArrayDiffFunction<ValueT>)(left, right, config) as DefaultDiffResult<ValueT>;
+	const testDefault = <ValueT>(left: ValueT[], right: ValueT[], config?: undefined | DefaultDiffConfig<ValueT> | DiffConfig<ValueT, unknown, unknown, unknown>): DefaultDiffResult<ValueT> => {
+		const result = diffFunction(left, right, config as undefined) as DefaultDiffResult<ValueT>;
 		const leftFromRight = applyPatch(right, result, patchConfigForTest(true));
 		const rightFromLeft = applyPatch(left, result, patchConfigForTest(false));
 		const processValue = config?.processValue ?? ((v) => v);

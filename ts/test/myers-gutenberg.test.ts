@@ -17,7 +17,7 @@ const doOnlineTests = (): boolean => {
 	return envValue != null && envValue !== "" && envValue !== "0" && envValue !== "NO" && envValue !== "FALSE";
 };
 
-describe("online tests via Project Gutenberg", async () => {
+describe("online tests via Project Gutenberg", () => {
 	let muchAdoOriginal: string | undefined;
 
 	before(async () => {

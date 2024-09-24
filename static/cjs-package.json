@@ -1,3 +1,6 @@
 {
+	"engines": {
+		"node": ">=14"
+	},
 	"type": "commonjs"
 }

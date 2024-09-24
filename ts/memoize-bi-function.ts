@@ -11,7 +11,7 @@ export const memoizeBiFunction = <ValueT, ResultT>(
 		if (!leftCache.has(left)) {
 			leftCache.set(left, new Map());
 		}
-		let rightCache = leftCache.get(left) as Map<ValueT, ResultT>;
+		let rightCache = leftCache.get(left)!;
 		if (!rightCache.has(right)) {
 			const actual = fn(left, right);
 			rightCache.set(right, actual);

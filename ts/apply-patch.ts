@@ -57,7 +57,9 @@ export function applyPatch<ValueT, AddOpT, RemoveOpT, CopyOpT>(
 		config = maybeConfig as PatchConfigT;
 		reverse = config.reverse ?? reverse;
 	}
-	config ??= {} as PatchConfigT;
+	if (config == null) {
+		config = {} as PatchConfigT;
+	}
 	const hasOp = (op: unknown, value: string): boolean => (op != null && typeof op === "object" && "op" in op && op.op === value);
 	const isAdd = config.isAdd ?? ((op: DefinedOpT): op is Defined<AddOpT> => hasOp(op, "add"));
 	const isCopy = config.isCopy ?? ((op: DefinedOpT): op is Defined<CopyOpT> => hasOp(op, "copy"));

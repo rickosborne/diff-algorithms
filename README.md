@@ -241,7 +241,27 @@ type BiFunction<T, U> = (a: T, b: T) => U;
 Yeah, I know, `BiFunction` is a bit overloaded here, and is often used to mean `(T, U) => V` implementations.
 But naming things is hard, y'all.
 
+## Version support
+
+As of `2024.9.24.1`, you can build with node v14 or newer.
+If you've already built the `dist` code, you can run the CJS tests with mocha and node v12 and v13 if you really want.
+
+I tried going back to v10 and v11 and running the CJS tests, but couldn't get mocha to run.
+It'd presumably be doable with an older version of mocha, but meh.
+That's already 5+ years old and seems not useful.
+
+I doubt I'll try to get the build working with anything older than node v14.
+It would require switching from `tsx` to `ts-node`, or juggling them both, and downgrading the version of TypeScript, so ... nah.
+
+I haven't tried any of this with deno or bun.
+You're on your own with that, and welcome to open PRs for tweaks.
+
 # Release Notes
+
+`2024.9.24.1`
+
+- REFACTOR: Add support for Node v16.x and v14.x.
+- FEATURE: Add `dist-test` and unit tests for compiled `dist` JS files.
 
 `2024.9.24`
 

@@ -136,7 +136,7 @@ export function boilerplate<ValueT, AddOpT, RemoveOpT, CopyT>(
 	 * Translate from the Minimal operations to the formats built by the caller.
 	 */
 	return headCopy.concat(middle, tailCopy).reduce<MinimalOp[]>((prev, cur) => {
-		const last = prev.at(-1);
+		const last = prev[prev.length - 1];
 		if (last != null && ((last[0] === COPY && cur[0] === COPY) || (last[0] === REPLACE && cur[0] === REPLACE))) {
 			last[1] += cur[1];
 		} else {
@@ -144,6 +144,7 @@ export function boilerplate<ValueT, AddOpT, RemoveOpT, CopyT>(
 		}
 		return prev;
 	}, []).reduce<ReturnT>((prev, op) => {
+		const opName = op[0];
 		let typedOp: OpT | undefined;
 		let typedOps: Defined<OpT>[] | undefined;
 		if (op[0] === ADD) {
@@ -157,7 +158,7 @@ export function boilerplate<ValueT, AddOpT, RemoveOpT, CopyT>(
 				.concat(filledArray<OpT | undefined>(op[1], (idx) => toAdd(right[op[3] + idx], op[2] + op[1], op[3] + idx)))
 				.filter(isDefined);
 		} else {
-			throw new Error(`Unknown op: ${ op[0] }`);
+			throw new Error(`Unknown op: ${ opName }`);
 		}
 		if (isDefined(typedOp)) {
 			prev.push(typedOp);

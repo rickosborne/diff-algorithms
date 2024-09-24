@@ -4,13 +4,13 @@ import { DiffNotFoundError } from "./errors.js";
 import { filledArray } from "./filled-array.js";
 import { flooredModulo } from "./floored-modulo.js";
 import { isDefined } from "./is-defined.js";
-import type { DefaultDiffConfig, DefaultDiffResult, Defined, DiffConfig, IndexedAddOperation, IndexedCopyOperation, IndexedRemoveOperation } from "./types.js";
+import type { DefaultDiffConfig, DefaultDiffResult, Defined, DiffConfig } from "./types.js";
 
 /**
  * Calculate a shallow diff (set of patch operations) between two arrays,
  * optionally using the provided equality predicate.
- * In this overload, the returned operations are {@link IndexedAddOperation},
- * {@link IndexedCopyOperation}, and {@link IndexedRemoveOperation}, which
+ * In this overload, the returned operations are {@code IndexedAddOperation},
+ * {@code IndexedCopyOperation}, and {@code IndexedRemoveOperation}, which
  * are vaguely supersets of RFC6902 data types.
  */
 export function myersDiff<ValueT>(
